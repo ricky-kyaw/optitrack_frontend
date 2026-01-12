@@ -1,4 +1,4 @@
-const API_BASE = "/api/v1"
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000/api/v1"
 
 class ApiError extends Error {
   constructor(
@@ -37,7 +37,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
   if (response.status === 401) {
     setAccessToken(null)
-    window.location.href = "/login"
+    window.location.href = "/login/"
     throw new ApiError(401, "Unauthorized")
   }
 
@@ -51,14 +51,13 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
 // Auth
 export interface LoginCredentials {
-  email: string
+  username: string
   password: string
 }
 
 export interface LoginResponse {
   access: string
   refresh: string
-  user: User
 }
 
 export interface User {

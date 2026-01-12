@@ -12,27 +12,46 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Clock } from "lucide-react"
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("")
+  const [username, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const { login } = useAuth()
   const router = useRouter()
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  /*const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log("Submitting login form", { username, password })
     setError("")
     setIsLoading(true)
 
     try {
-      await login({ email, password })
-      router.push("/dashboard")
+      await login({ username, password })
+      router.push("/dashboard/")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed")
     } finally {
       setIsLoading(false)
     }
+  }*/
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    console.log("Submitting login form", { username, password })  // should ALWAYS show
+    setError("")
+    setIsLoading(true)
+    try {
+      await login({ username, password })
+      console.log("Login success, navigating to dashboard")
+      router.push("/dashboard/")
+    } catch (err) {
+      console.error("Login error caught in page:", err)
+      setError(err instanceof Error ? err.message : "Login failed")
+    } finally {
+      setIsLoading(false)
+    }
   }
+
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted p-4">
@@ -51,9 +70,9 @@ export default function LoginPage() {
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
-                type="email"
+                type="text"
                 placeholder="you@company.com"
-                value={email}
+                value={username}
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />

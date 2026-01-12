@@ -11,12 +11,12 @@ import {
 } from "@/lib/api"
 
 interface AuthContextType {
-  user: User | null
-  isAdmin: boolean
   isLoading: boolean
   isAuthenticated: boolean
   login: (credentials: LoginCredentials) => Promise<void>
   logout: () => void
+  user: User | null
+  isAdmin: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -25,7 +25,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  useEffect(() => {
+    useEffect(() => {
+    const storedToken = localStorage.getItem("optitrack_token")
+    if (storedToken) {
+      setAccessToken(storedToken)
+    }
+    setIsLoading(false)
+  }, [])
+
+  /*useEffect(() => {
     // Check for existing session on mount
     const storedUser = localStorage.getItem("optitrack_user")
     const storedToken = localStorage.getItem("optitrack_token")
@@ -34,13 +42,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAccessToken(storedToken)
     }
     setIsLoading(false)
-  }, [])
+  }, [])*/
 
   const login = async (credentials: LoginCredentials) => {
-    const response = await apiLogin(credentials)
-    setUser(response.user)
-    localStorage.setItem("optitrack_user", JSON.stringify(response.user))
-    localStorage.setItem("optitrack_token", response.access)
+    //const response = await apiLogin(credentials)
+    const tokens = await apiLogin(credentials)
+    localStorage.setItem("optitrack_token", tokens.access)
+    setUser(null)
+    //setUser(response.user)
+    //localStorage.setItem("optitrack_user", JSON.stringify(response.user))
+    //localStorage.setItem("optitrack_token", response.access)
   }
 
   const logout = () => {
@@ -56,7 +67,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         isAdmin: user?.is_admin ?? false,
         isLoading,
-        isAuthenticated: !!user && !!getAccessToken(),
+        //isAuthenticated: !!user && !!getAccessToken(),
+        isAuthenticated: !!getAccessToken(),
         login,
         logout,
       }}

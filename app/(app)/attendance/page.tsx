@@ -34,7 +34,7 @@ export default function AttendancePage() {
     fetchData()
   }, [fetchData])
 
-  const handleClockIn = async () => {
+  /*const handleClockIn = async () => {
     setActionLoading(true)
     try {
       await clockIn()
@@ -49,7 +49,25 @@ export default function AttendancePage() {
     } finally {
       setActionLoading(false)
     }
+  }*/
+
+  const handleClockIn = async () => {
+    setActionLoading(true)
+    setError("")
+    try {
+      await clockIn()
+      toast({
+        title: "Clocked in successfully",
+        description: "Your work session has started.",
+      })
+      await fetchData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Clock in failed")
+    } finally {
+      setActionLoading(false)
+    }
   }
+
 
   const handleClockOut = async () => {
     setActionLoading(true)
@@ -169,7 +187,11 @@ export default function AttendancePage() {
                             })
                           : "—"}
                       </TableCell>
-                      <TableCell>{session.duration_hours.toFixed(1)}h</TableCell>
+                      <TableCell>
+                        {session.duration_hours != null
+                          ? `${session.duration_hours.toFixed(1)}h`
+                          : "-"}
+                      </TableCell>
                       <TableCell>
                         <Badge variant={session.source === "web" ? "default" : "secondary"}>{session.source}</Badge>
                       </TableCell>
