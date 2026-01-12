@@ -5,7 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { clockIn, clockOut, listSessions, getUserSummary, type WorkSession, type UserSummary } from "@/lib/api"
+import {
+  clockIn,
+  clockOut,
+  listSessions,
+  getUserSummary,
+  type WorkSession,
+  type UserSummary,
+} from "@/lib/api"
 import { LogIn, LogOut, Clock, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
@@ -20,9 +27,13 @@ export default function AttendancePage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [userSummary, sessionList] = await Promise.all([getUserSummary(), listSessions({ employee: "me" })])
+      const [userSummary, sessionList] = await Promise.all([
+        getUserSummary(),
+        listSessions({ employee: "me" }),
+      ])
       setSummary(userSummary)
       setSessions(sessionList)
+      setError("")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load data")
     } finally {
@@ -34,24 +45,20 @@ export default function AttendancePage() {
     fetchData()
   }, [fetchData])
 
-  /*const handleClockIn = async () => {
-    setActionLoading(true)
-    try {
-      await clockIn()
-      toast({ title: "Clocked in successfully", description: "Your work session has started." })
-      await fetchData()
-    } catch (err) {
-      toast({
-        title: "Clock in failed",
-        description: err instanceof Error ? err.message : "An error occurred",
-        variant: "destructive",
-      })
-    } finally {
-      setActionLoading(false)
-    }
-  }*/
+  // Determine current clocked-in status from sessions (using clock_out_at)
+  const latestSession: WorkSession | null =
+    sessions.length > 0
+      ? [...sessions].sort(
+          (a, b) =>
+            new Date(b.clock_in_at).getTime() - new Date(a.clock_in_at).getTime(),
+        )[0]
+      : null
+
+  const isClockedIn = !!latestSession && latestSession.clock_out_at === null
+  const currentSessionStart = isClockedIn ? latestSession.clock_in_at : null
 
   const handleClockIn = async () => {
+    if (isClockedIn) return
     setActionLoading(true)
     setError("")
     try {
@@ -68,19 +75,19 @@ export default function AttendancePage() {
     }
   }
 
-
   const handleClockOut = async () => {
+    if (!isClockedIn) return
     setActionLoading(true)
+    setError("")
     try {
       await clockOut()
-      toast({ title: "Clocked out successfully", description: "Your work session has ended." })
+      toast({
+        title: "Clocked out successfully",
+        description: "Your work session has ended.",
+      })
       await fetchData()
     } catch (err) {
-      toast({
-        title: "Clock out failed",
-        description: err instanceof Error ? err.message : "An error occurred",
-        variant: "destructive",
-      })
+      setError(err instanceof Error ? err.message : "Clock out failed")
     } finally {
       setActionLoading(false)
     }
@@ -94,17 +101,21 @@ export default function AttendancePage() {
     )
   }
 
-  if (error) {
-    return <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-destructive">{error}</div>
-  }
-
   return (
     <>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Attendance</h1>
-          <p className="text-muted-foreground">Clock in and out to track your work hours</p>
+          <p className="text-muted-foreground">
+            Clock in and out to track your work hours
+          </p>
         </div>
+
+        {error && (
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-destructive">
+            {error}
+          </div>
+        )}
 
         {/* Clock In/Out Card */}
         <Card>
@@ -120,9 +131,13 @@ export default function AttendancePage() {
                 size="lg"
                 className="h-20 w-48 text-lg"
                 onClick={handleClockIn}
-                disabled={actionLoading || summary?.is_clocked_in}
+                disabled={actionLoading || isClockedIn}
               >
-                {actionLoading ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <LogIn className="mr-2 h-6 w-6" />}
+                {actionLoading && !isClockedIn ? (
+                  <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+                ) : (
+                  <LogIn className="mr-2 h-6 w-6" />
+                )}
                 Clock In
               </Button>
               <Button
@@ -130,9 +145,9 @@ export default function AttendancePage() {
                 variant="outline"
                 className="h-20 w-48 text-lg bg-transparent"
                 onClick={handleClockOut}
-                disabled={actionLoading || !summary?.is_clocked_in}
+                disabled={actionLoading || !isClockedIn}
               >
-                {actionLoading ? (
+                {actionLoading && isClockedIn ? (
                   <Loader2 className="mr-2 h-6 w-6 animate-spin" />
                 ) : (
                   <LogOut className="mr-2 h-6 w-6" />
@@ -140,10 +155,10 @@ export default function AttendancePage() {
                 Clock Out
               </Button>
             </div>
-            {summary?.is_clocked_in && summary.current_session_start && (
+            {isClockedIn && currentSessionStart && (
               <p className="text-center text-sm text-muted-foreground">
                 You&apos;ve been clocked in since{" "}
-                {new Date(summary.current_session_start).toLocaleTimeString([], {
+                {new Date(currentSessionStart).toLocaleTimeString([], {
                   hour: "2-digit",
                   minute: "2-digit",
                 })}
@@ -172,35 +187,48 @@ export default function AttendancePage() {
                 <TableBody>
                   {sessions.map((session) => (
                     <TableRow key={session.id}>
-                      <TableCell className="font-medium">{new Date(session.date).toLocaleDateString()}</TableCell>
+                      <TableCell className="font-medium">
+                        {new Date(session.work_date).toLocaleDateString()}
+                      </TableCell>
                       <TableCell>
-                        {new Date(session.clock_in).toLocaleTimeString([], {
+                        {new Date(session.clock_in_at).toLocaleTimeString([], {
                           hour: "2-digit",
                           minute: "2-digit",
                         })}
                       </TableCell>
                       <TableCell>
-                        {session.clock_out
-                          ? new Date(session.clock_out).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })
+                        {session.clock_out_at
+                          ? new Date(session.clock_out_at).toLocaleTimeString(
+                              [],
+                              {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              },
+                            )
                           : "—"}
                       </TableCell>
                       <TableCell>
-                        {session.duration_hours != null
-                          ? `${session.duration_hours.toFixed(1)}h`
-                          : "-"}
+                        {session.duration_display || "-"}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={session.source === "web" ? "default" : "secondary"}>{session.source}</Badge>
+                        <Badge
+                          variant={
+                            session.clock_in_source === "WEB"
+                              ? "default"
+                              : "secondary"
+                          }
+                        >
+                          {session.clock_in_source.toLowerCase()}
+                        </Badge>
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             ) : (
-              <p className="py-8 text-center text-muted-foreground">No work sessions recorded yet</p>
+              <p className="py-8 text-center text-muted-foreground">
+                No work sessions recorded yet
+              </p>
             )}
           </CardContent>
         </Card>

@@ -42,8 +42,10 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   }
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({}))
-    throw new ApiError(response.status, error.message || "An error occurred")
+    const error = await response.json().catch(() => ({} as any))
+    const message =
+      (error && (error.detail || error.message)) || "An error occurred"
+    throw new ApiError(response.status, message)
   }
 
   return response.json()
@@ -98,11 +100,15 @@ export interface UserSummary {
 
 export interface WorkSession {
   id: number
-  date: string
-  clock_in: string
-  clock_out: string | null
-  duration_hours: number
-  source: "web" | "manual"
+  employee: number
+  employee_name: string
+  work_date: string
+  clock_in_at: string
+  clock_out_at: string | null
+  total_work_duration: string // "HH:MM:SS"
+  duration_display: string
+  clock_in_source: "WEB" | "MANUAL" | string
+  clock_out_source: "WEB" | "MANUAL" | string | null
 }
 
 export function getLiveData(): Promise<LiveData> {
